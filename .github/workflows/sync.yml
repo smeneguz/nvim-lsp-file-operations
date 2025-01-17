@@ -1,0 +1,46 @@
+name: Sync Fork
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs daily at midnight
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/antosha417/nvim-lsp-file-operations.git
+      
+      - name: Fetch upstream changes
+        run: |
+          git fetch upstream
+      
+      - name: Check for updates
+        id: check
+        run: |
+          if git diff --quiet upstream/main main; then
+            echo "No updates found"
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          else
+            echo "Updates found"
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Create Pull Request
+        if: steps.check.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          title: 'chore: sync with upstream'
+          body: 'Updates from upstream repository'
+          branch: sync-upstream
+          base: main
